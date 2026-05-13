@@ -1,6 +1,6 @@
 "use client";
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../lib/supabase"; // ✅ IMPORTANT: DO NOT CHANGE
 import { useState } from "react";
 
 export default function Home() {
@@ -11,7 +11,13 @@ export default function Home() {
   const [pod, setPod] = useState("");
 
   async function saveBooking() {
-    const { error } = await supabase.from("bookings").insert([
+    const supabaseClient = supabase;
+    if (!supabaseClient) {
+      alert("Supabase client is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      return;
+    }
+
+    const { error } = await supabaseClient.from("bookings").insert([
       {
         booking_no: bookingNo,
         ref_no: refNo,
@@ -25,7 +31,6 @@ export default function Home() {
       alert("Error ❌");
     } else {
       alert("Saved ✅");
-
       setBookingNo("");
       setRefNo("");
       setPol("");
@@ -36,14 +41,12 @@ export default function Home() {
   return (
     <div style={{ fontFamily: "Arial" }}>
 
-      {/* HEADER */}
       <div style={{ background: "#8fa9c9", padding: "10px", color: "white" }}>
         <b>SHIPPING ERP</b>
       </div>
 
       <div style={{ display: "flex" }}>
 
-        {/* SIDEBAR */}
         <div style={{
           width: "250px",
           background: "#dbe4f0",
@@ -57,7 +60,6 @@ export default function Home() {
           <p>CRT</p>
         </div>
 
-        {/* MAIN */}
         <div style={{ flex: 1, padding: "20px" }}>
           <h2>Booking</h2>
 
@@ -95,4 +97,3 @@ export default function Home() {
     </div>
   );
 }
-``
