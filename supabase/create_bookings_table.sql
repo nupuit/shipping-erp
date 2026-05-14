@@ -4,11 +4,115 @@
     -- Enable UUID extension (if not already enabled)
     create extension if not exists "uuid-ossp";
 
+    -- Master Tables for Dropdowns
+
+    -- Currencies Master
+    create table if not exists public.currencies (
+    id bigint generated always as identity primary key,
+    currency_code text not null unique,
+    currency_name text not null,
+    symbol text,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Container Types Master
+    create table if not exists public.container_types (
+    id bigint generated always as identity primary key,
+    container_code text not null unique,
+    description text not null,
+    size_category text check (size_category in ('20ft', '40ft', '45ft', 'Other')),
+    teu numeric(3,1) default 1,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Services Master (CY, Door, Port, etc.)
+    create table if not exists public.services (
+    id bigint generated always as identity primary key,
+    service_code text not null unique,
+    description text not null,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Approval Statuses Master
+    create table if not exists public.approval_statuses (
+    id bigint generated always as identity primary key,
+    status_code text not null unique,
+    description text not null,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Freight Types Master
+    create table if not exists public.freight_types (
+    id bigint generated always as identity primary key,
+    freight_code text not null unique,
+    description text not null,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Container Owners Master
+    create table if not exists public.container_owners (
+    id bigint generated always as identity primary key,
+    owner_code text not null unique,
+    description text not null,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Activity Types Master (for container activities)
+    create table if not exists public.activity_types (
+    id bigint generated always as identity primary key,
+    activity_code text not null unique,
+    description text not null,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Document Types Master
+    create table if not exists public.document_types (
+    id bigint generated always as identity primary key,
+    document_code text not null unique,
+    description text not null,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Container Statuses Master
+    create table if not exists public.container_statuses (
+    id bigint generated always as identity primary key,
+    status_code text not null unique,
+    description text not null,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Vessel Types Master
+    create table if not exists public.vessel_types (
+    id bigint generated always as identity primary key,
+    vessel_code text not null unique,
+    description text not null,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
+    -- Party Types Master
+    create table if not exists public.party_types (
+    id bigint generated always as identity primary key,
+    party_code text not null unique,
+    description text not null,
+    is_active boolean default true,
+    created_at timestamptz not null default now()
+    );
+
     -- Common Parties Master (Shippers, Consignees, Agents, Carriers, etc.)
     create table if not exists public.common_parties (
     id bigint generated always as identity primary key,
     party_name text not null,
-    party_type text not null check (party_type in ('Agent', 'Shipper', 'Consignee', 'Carrier', 'Port', 'CFS', 'Terminal')),
+    party_type_id bigint references public.party_types(id),
     contact_person text,
     email text,
     phone text,
@@ -35,7 +139,7 @@
     vessel_name text not null unique,
     imo_no text unique,
     voyage text,
-    vessel_type text check (vessel_type in ('Container', 'Breakbulk', 'RoRo', 'Tanker', 'General Cargo', 'Other')),
+    vessel_type_id bigint references public.vessel_types(id),
     capacity_teu integer,
     capacity_cbm numeric(12, 2),
     flag text,
@@ -79,6 +183,9 @@
     city text,
     coordinates text,
     timezone text,
+    unlocode text,
+    port_type text,
+    facilities text,
     is_active boolean default true,
     created_at timestamptz not null default now()
     );
@@ -93,10 +200,10 @@
     sailing_date date,
     carrier_id bigint references public.common_parties(id),
     commodity_id bigint references public.commodities(id),
-    freight_type text default 'Regular' check (freight_type in ('Regular', 'DG', 'Reefer', 'Project', 'Breakbulk')),
-    container_owner text default 'Principal' check (container_owner in ('Principal', 'Ship Owner', 'Third Party')),
-    pol text,
-    pod text,
+    freight_type_id bigint references public.freight_types(id),
+    container_owner_id bigint references public.container_owners(id),
+    pol_id bigint references public.ports(id),
+    pod_id bigint references public.ports(id),
     pot1 text,
     pot2 text,
     shipper_id bigint not null references public.common_parties(id),
@@ -106,11 +213,11 @@
     agent1_id bigint references public.common_parties(id),
     agent2_id bigint references public.common_parties(id),
     act_shipper boolean default false,
-    approval_status text not null default 'Draft' check (approval_status in ('Draft', 'Pending', 'Confirmed', 'Cancelled', 'Completed')),
+    approval_status_id bigint references public.approval_statuses(id),
     special_requirements text,
     free_days_pol integer default 0,
     detention_free_days_pofd integer default 0,
-    detention_currency text default 'USD',
+    detention_currency_id bigint references public.currencies(id),
     slot_operator_t1_id bigint references public.common_parties(id),
     slot_operator_t2_id bigint references public.common_parties(id),
     cc_agent_id bigint references public.common_parties(id),
@@ -125,8 +232,8 @@
     cro_instruction text,
     container_info text,
     srr text,
-    service1 text default 'CY',
-    service2 text default 'CY',
+    service1_id bigint references public.services(id),
+    service2_id bigint references public.services(id),
     cargo_details jsonb default '[]'::jsonb,
     remarks text,
     total_cost numeric(15, 2) default 0,
@@ -141,8 +248,7 @@
     id bigint generated always as identity primary key,
     booking_id bigint not null references public.bookings(id) on delete cascade,
     sno integer,
-    size text,
-    item_type text,
+    container_type_id bigint references public.container_types(id),
     quantity integer default 1,
     gross_weight text,
     packages text,
@@ -167,8 +273,8 @@
     volume text,
     vessel_name text,
     voyage_no text,
-    port_of_loading text,
-    port_of_discharge text,
+    port_of_loading_id bigint references public.ports(id),
+    port_of_discharge_id bigint references public.ports(id),
     remarks text,
     bl_status text default 'Draft' check (bl_status in ('Draft', 'Issued', 'Surrendered', 'Cancelled')),
     created_at timestamptz not null default now(),
@@ -182,8 +288,8 @@
     bl_id bigint references public.bills_of_lading(id),
     container_no text,
     activity_date timestamptz,
-    activity_type text check (activity_type in ('Gate In', 'Gate Out', 'Load', 'Discharge', 'Delivery', 'Return', 'Repair', 'Other')),
-    status text,
+    activity_type_id bigint references public.activity_types(id),
+    status_id bigint references public.container_statuses(id),
     location text,
     terminal_name text,
     vessel_name text,
@@ -196,11 +302,11 @@
     -- Detention Rates
     create table if not exists public.detention_rates (
     id bigint generated always as identity primary key,
-    currency text not null,
+    currency_id bigint references public.currencies(id),
     rate_per_day numeric(10, 2),
     rate_per_week numeric(10, 2),
     rate_per_month numeric(10, 2),
-    container_type text check (container_type in ('20DC', '40DC', '40HC', 'Other')),
+    container_type_id bigint references public.container_types(id),
     description text,
     effective_date date,
     is_active boolean default true,
@@ -215,7 +321,7 @@
     charge_code text not null,
     charge_description text,
     charge_amount numeric(12, 2) not null,
-    charge_currency text default 'USD',
+    charge_currency_id bigint references public.currencies(id),
     quantity integer default 1,
     rate numeric(10, 2),
     vendor_id bigint references public.common_parties(id),
@@ -229,7 +335,7 @@
     id bigint generated always as identity primary key,
     booking_id bigint references public.bookings(id),
     bl_id bigint references public.bills_of_lading(id),
-    document_type text check (document_type in ('B/L', 'Invoice', 'Packing List', 'Certificate', 'License', 'Insurance', 'Other')),
+    document_type_id bigint references public.document_types(id),
     document_name text,
     file_url text,
     file_size integer,
@@ -245,7 +351,7 @@
     charge_type text,
     charge_description text,
     base_rate numeric(12, 2),
-    currency text default 'USD',
+    currency_id bigint references public.currencies(id),
     effective_date date,
     is_active boolean default true,
     created_at timestamptz not null default now(),
@@ -256,9 +362,9 @@
     create table if not exists public.containers (
     id bigint generated always as identity primary key,
     container_no text not null unique,
-    container_type text check (container_type in ('20DC', '40DC', '40HC', 'HC', 'OT', 'FR', 'TK', 'RH')),
+    container_type_id bigint references public.container_types(id),
     owner_id bigint references public.common_parties(id),
-    status text default 'Available' check (status in ('Available', 'In-Use', 'Damaged', 'Repair', 'Scrapped')),
+    status_id bigint references public.container_statuses(id),
     tare_weight numeric(8, 2),
     max_payload numeric(8, 2),
     last_inspection_date date,
@@ -268,16 +374,29 @@
     );
 
     -- Indexes for performance
-    create index if not exists common_parties_party_type_idx on public.common_parties(party_type);
+    create index if not exists currencies_code_idx on public.currencies(currency_code);
+    create index if not exists container_types_code_idx on public.container_types(container_code);
+    create index if not exists services_code_idx on public.services(service_code);
+    create index if not exists approval_statuses_code_idx on public.approval_statuses(status_code);
+    create index if not exists freight_types_code_idx on public.freight_types(freight_code);
+    create index if not exists container_owners_code_idx on public.container_owners(owner_code);
+    create index if not exists activity_types_code_idx on public.activity_types(activity_code);
+    create index if not exists document_types_code_idx on public.document_types(document_code);
+    create index if not exists container_statuses_code_idx on public.container_statuses(status_code);
+    create index if not exists vessel_types_code_idx on public.vessel_types(vessel_code);
+    create index if not exists party_types_code_idx on public.party_types(party_code);
+    create index if not exists common_parties_party_type_idx on public.common_parties(party_type_id);
     create index if not exists common_parties_email_idx on public.common_parties(email);
     create index if not exists vessels_vessel_name_idx on public.vessels(vessel_name);
     create index if not exists vessels_imo_no_idx on public.vessels(imo_no);
+    create index if not exists vessels_vessel_type_idx on public.vessels(vessel_type_id);
     create index if not exists commodities_commodity_code_idx on public.commodities(commodity_code);
     create index if not exists commodities_hs_code_idx on public.commodities(hs_code);
+    create index if not exists ports_port_code_idx on public.ports(port_code);
     create index if not exists bookings_booking_no_idx on public.bookings(booking_no);
     create index if not exists bookings_booking_date_idx on public.bookings(booking_date);
     create index if not exists bookings_sailing_date_idx on public.bookings(sailing_date);
-    create index if not exists bookings_approval_status_idx on public.bookings(approval_status);
+    create index if not exists bookings_approval_status_idx on public.bookings(approval_status_id);
     create index if not exists bookings_shipper_idx on public.bookings(shipper_id);
     create index if not exists bookings_consignee_idx on public.bookings(consignee_id);
     create index if not exists booking_items_booking_idx on public.booking_items(booking_id);
@@ -289,25 +408,193 @@
     create index if not exists documents_booking_idx on public.documents(booking_id);
     create index if not exists documents_bl_idx on public.documents(bl_id);
     create index if not exists containers_container_no_idx on public.containers(container_no);
-    create index if not exists containers_status_idx on public.containers(status);
+    create index if not exists containers_status_idx on public.containers(status_id);
+
+    -- Seed Data: Master Tables
+
+    -- Currencies
+    insert into public.currencies (currency_code, currency_name, symbol)
+    values
+    ('USD', 'US Dollar', '$'),
+    ('EUR', 'Euro', '€'),
+    ('GBP', 'British Pound', '£'),
+    ('BDT', 'Bangladeshi Taka', '৳'),
+    ('JPY', 'Japanese Yen', '¥'),
+    ('CNY', 'Chinese Yuan', '¥'),
+    ('INR', 'Indian Rupee', '₹'),
+    ('SGD', 'Singapore Dollar', 'S$'),
+    ('AED', 'UAE Dirham', 'د.إ'),
+    ('SAR', 'Saudi Riyal', '﷼')
+    on conflict do nothing;
+
+    -- Container Types
+    insert into public.container_types (container_code, description, size_category, teu)
+    values
+    ('20DC', '20ft Dry Container', '20ft', 1),
+    ('40DC', '40ft Dry Container', '40ft', 2),
+    ('40HC', '40ft High Cube', '40ft', 2),
+    ('45HC', '45ft High Cube', '45ft', 2.25),
+    ('20OT', '20ft Open Top', '20ft', 1),
+    ('40OT', '40ft Open Top', '40ft', 2),
+    ('20FR', '20ft Flat Rack', '20ft', 1),
+    ('40FR', '40ft Flat Rack', '40ft', 2),
+    ('20TK', '20ft Tank Container', '20ft', 1),
+    ('20RH', '20ft Reefer Container', '20ft', 1),
+    ('40RH', '40ft Reefer Container', '40ft', 2)
+    on conflict do nothing;
+
+    -- Services
+    insert into public.services (service_code, description)
+    values
+    ('CY', 'Container Yard'),
+    ('DOOR', 'Door Delivery'),
+    ('PORT', 'Port to Port'),
+    ('CFS', 'Container Freight Station'),
+    ('ICD', 'Inland Container Depot'),
+    ('AIR', 'Air Freight'),
+    ('RAIL', 'Rail Freight'),
+    ('ROAD', 'Road Freight')
+    on conflict do nothing;
+
+    -- Approval Statuses
+    insert into public.approval_statuses (status_code, description)
+    values
+    ('DRAFT', 'Draft'),
+    ('PENDING', 'Pending Approval'),
+    ('CONFIRMED', 'Confirmed'),
+    ('CANCELLED', 'Cancelled'),
+    ('COMPLETED', 'Completed'),
+    ('ON_HOLD', 'On Hold')
+    on conflict do nothing;
+
+    -- Freight Types
+    insert into public.freight_types (freight_code, description)
+    values
+    ('REGULAR', 'Regular Freight'),
+    ('DG', 'Dangerous Goods'),
+    ('REEFER', 'Reefer Cargo'),
+    ('PROJECT', 'Project Cargo'),
+    ('BREAKBULK', 'Breakbulk'),
+    ('RO_RO', 'Roll-on/Roll-off'),
+    ('LIQUID', 'Liquid Bulk'),
+    ('DRY', 'Dry Bulk')
+    on conflict do nothing;
+
+    -- Container Owners
+    insert into public.container_owners (owner_code, description)
+    values
+    ('PRINCIPAL', 'Principal'),
+    ('SHIP_OWNER', 'Ship Owner'),
+    ('THIRD_PARTY', 'Third Party'),
+    ('LESSOR', 'Container Lessor'),
+    ('CARRIER', 'Shipping Line')
+    on conflict do nothing;
+
+    -- Activity Types
+    insert into public.activity_types (activity_code, description)
+    values
+    ('GATE_IN', 'Gate In'),
+    ('GATE_OUT', 'Gate Out'),
+    ('LOAD', 'Load onto Vessel'),
+    ('DISCHARGE', 'Discharge from Vessel'),
+    ('DELIVERY', 'Delivery to Consignee'),
+    ('RETURN', 'Return to Depot'),
+    ('REPAIR', 'Repair/Maintenance'),
+    ('INSPECTION', 'Inspection'),
+    ('STORAGE', 'Storage'),
+    ('TRANSHIPMENT', 'Transhipment')
+    on conflict do nothing;
+
+    -- Document Types
+    insert into public.document_types (document_code, description)
+    values
+    ('BL', 'Bill of Lading'),
+    ('INVOICE', 'Commercial Invoice'),
+    ('PACKING_LIST', 'Packing List'),
+    ('CERTIFICATE', 'Certificate of Origin'),
+    ('LICENSE', 'Import/Export License'),
+    ('INSURANCE', 'Insurance Certificate'),
+    ('CO', 'Certificate of Origin'),
+    ('COO', 'Certificate of Origin'),
+    ('CI', 'Commercial Invoice'),
+    ('PL', 'Packing List')
+    on conflict do nothing;
+
+    -- Container Statuses
+    insert into public.container_statuses (status_code, description)
+    values
+    ('AVAILABLE', 'Available'),
+    ('IN_USE', 'In Use'),
+    ('DAMAGED', 'Damaged'),
+    ('REPAIR', 'Under Repair'),
+    ('SCRAPPED', 'Scrapped'),
+    ('LOST', 'Lost'),
+    ('SOLD', 'Sold'),
+    ('LEASED', 'Leased Out')
+    on conflict do nothing;
+
+    -- Vessel Types
+    insert into public.vessel_types (vessel_code, description)
+    values
+    ('CONTAINER', 'Container Ship'),
+    ('BREAKBULK', 'Breakbulk Ship'),
+    ('RO_RO', 'Roll-on/Roll-off Ship'),
+    ('TANKER', 'Tanker'),
+    ('GENERAL_CARGO', 'General Cargo Ship'),
+    ('BULK_CARRIER', 'Bulk Carrier'),
+    ('REEFER', 'Reefer Ship'),
+    ('PASSENGER', 'Passenger Ship'),
+    ('OTHER', 'Other')
+    on conflict do nothing;
+
+    -- Party Types
+    insert into public.party_types (party_code, description)
+    values
+    ('AGENT', 'Shipping Agent'),
+    ('SHIPPER', 'Shipper'),
+    ('CONSIGNEE', 'Consignee'),
+    ('CARRIER', 'Shipping Carrier'),
+    ('PORT', 'Port Authority'),
+    ('CFS', 'Container Freight Station'),
+    ('TERMINAL', 'Terminal Operator'),
+    ('FORWARDER', 'Freight Forwarder'),
+    ('CUSTOMS', 'Customs Broker'),
+    ('INSURANCE', 'Insurance Provider')
+    on conflict do nothing;
 
     -- Seed Data: Common Parties
-    insert into public.common_parties (party_name, party_type, contact_person, email, phone, address, city, country)
-    values
-    ('KD Shipping Agencies', 'Agent', 'MD. Kamal', 'kamal@kdshipping.com', '+880-123-456789', 'Port Road', 'Chittagong', 'Bangladesh'),
-    ('WFF Shipping LLC', 'Carrier', 'John Smith', 'info@wffshipping.com', '+1-555-123-4567', 'Maritime Plaza', 'New York', 'USA'),
-    ('Ocean Star Logistics', 'Shipper', 'Ahmed Hassan', 'contact@oceanstar.com', '+880-112-233-445', 'Ghazi Industrial', 'Chittagong', 'Bangladesh'),
-    ('Global Consignee Ltd', 'Consignee', 'Sarah Lee', 'sarah@globalconsignee.com', '+44-20-1234-5678', 'London Port', 'London', 'UK'),
-    ('Port of Chittagong', 'Port', 'Admin', 'admin@portchittagong.gov.bd', '+880-31-714501', 'Chittagong Port', 'Chittagong', 'Bangladesh'),
-    ('Maersk Line', 'Carrier', 'Operations', 'ops@maersk.com', '+45-3313-3313', 'Copenhagen', 'Copenhagen', 'Denmark')
+    insert into public.common_parties (party_name, party_type_id, contact_person, email, phone, address, city, country)
+    select
+    'KD Shipping Agencies', pt.id, 'MD. Kamal', 'kamal@kdshipping.com', '+880-123-456789', 'Port Road', 'Chittagong', 'Bangladesh'
+    from public.party_types pt where pt.party_code = 'AGENT'
+    union all
+    select 'WFF Shipping LLC', pt.id, 'John Smith', 'info@wffshipping.com', '+1-555-123-4567', 'Maritime Plaza', 'New York', 'USA'
+    from public.party_types pt where pt.party_code = 'CARRIER'
+    union all
+    select 'Ocean Star Logistics', pt.id, 'Ahmed Hassan', 'contact@oceanstar.com', '+880-112-233-445', 'Ghazi Industrial', 'Chittagong', 'Bangladesh'
+    from public.party_types pt where pt.party_code = 'SHIPPER'
+    union all
+    select 'Global Consignee Ltd', pt.id, 'Sarah Lee', 'sarah@globalconsignee.com', '+44-20-1234-5678', 'London Port', 'London', 'UK'
+    from public.party_types pt where pt.party_code = 'CONSIGNEE'
+    union all
+    select 'Port of Chittagong', pt.id, 'Admin', 'admin@portchittagong.gov.bd', '+880-31-714501', 'Chittagong Port', 'Chittagong', 'Bangladesh'
+    from public.party_types pt where pt.party_code = 'PORT'
+    union all
+    select 'Maersk Line', pt.id, 'Operations', 'ops@maersk.com', '+45-3313-3313', 'Copenhagen', 'Copenhagen', 'Denmark'
+    from public.party_types pt where pt.party_code = 'CARRIER'
     on conflict do nothing;
 
     -- Seed Data: Vessels
-    insert into public.vessels (vessel_name, imo_no, voyage, vessel_type, capacity_teu, flag, call_sign)
-    values
-    ('MSC CHITTAGONG', 'IMO1234567', 'VY-2026-001', 'Container', 8000, 'Panama', 'MSCC'),
-    ('HORIZON ARROW', 'IMO2345678', 'VY-2026-002', 'RoRo', 5000, 'Singapore', 'HOAR'),
-    ('PACIFIC BREEZE', 'IMO3456789', 'VY-2026-003', 'Breakbulk', 20000, 'Marshall Islands', 'PBZE')
+    insert into public.vessels (vessel_name, imo_no, voyage, vessel_type_id, capacity_teu, flag, call_sign)
+    select
+    'MSC CHITTAGONG', 'IMO1234567', 'VY-2026-001', vt.id, 8000, 'Panama', 'MSCC'
+    from public.vessel_types vt where vt.vessel_code = 'CONTAINER'
+    union all
+    select 'HORIZON ARROW', 'IMO2345678', 'VY-2026-002', vt.id, 5000, 'Singapore', 'HOAR'
+    from public.vessel_types vt where vt.vessel_code = 'RO_RO'
+    union all
+    select 'PACIFIC BREEZE', 'IMO3456789', 'VY-2026-003', vt.id, 20000, 'Marshall Islands', 'PBZE'
+    from public.vessel_types vt where vt.vessel_code = 'BREAKBULK'
     on conflict do nothing;
 
     -- Seed Data: Commodities
@@ -321,21 +608,40 @@
     on conflict do nothing;
 
     -- Seed Data: Ports
-    insert into public.ports (port_code, port_name, country, city, timezone)
+    insert into public.ports (port_code, port_name, country, city, timezone, unlocode)
     values
-    ('BDCGA', 'Port of Chittagong', 'Bangladesh', 'Chittagong', 'Asia/Dhaka'),
-    ('USNYC', 'Port of New York', 'USA', 'New York', 'America/New_York'),
-    ('GBLON', 'Port of London', 'UK', 'London', 'Europe/London'),
-    ('SGSIN', 'Port of Singapore', 'Singapore', 'Singapore', 'Asia/Singapore'),
-    ('AEDXB', 'Port of Dubai', 'UAE', 'Dubai', 'Asia/Dubai')
+    ('BDCGA', 'Port of Chittagong', 'Bangladesh', 'Chittagong', 'Asia/Dhaka', 'BDCGP'),
+    ('USNYC', 'Port of New York', 'USA', 'New York', 'America/New_York', 'USNYC'),
+    ('GBLON', 'Port of London', 'UK', 'London', 'Europe/London', 'GBLON'),
+    ('SGSIN', 'Port of Singapore', 'Singapore', 'Singapore', 'Asia/Singapore', 'SGSIN'),
+    ('AEDXB', 'Port of Dubai', 'UAE', 'Dubai', 'Asia/Dubai', 'AEDXB'),
+    ('HKHKG', 'Port of Hong Kong', 'Hong Kong', 'Hong Kong', 'Asia/Hong_Kong', 'HKHKG'),
+    ('JPTYO', 'Port of Tokyo', 'Japan', 'Tokyo', 'Asia/Tokyo', 'JPTYO'),
+    ('CNSHA', 'Port of Shanghai', 'China', 'Shanghai', 'Asia/Shanghai', 'CNSHA'),
+    ('INBOM', 'Port of Mumbai', 'India', 'Mumbai', 'Asia/Kolkata', 'INBOM'),
+    ('MYKUL', 'Port of Kuala Lumpur', 'Malaysia', 'Kuala Lumpur', 'Asia/Kuala_Lumpur', 'MYKUL')
     on conflict do nothing;
 
     -- Seed Data: Detention Rates
-    insert into public.detention_rates (currency, rate_per_day, rate_per_week, rate_per_month, container_type)
-    values
-    ('USD', 45.00, 280.00, 1000.00, '20DC'),
-    ('USD', 60.00, 380.00, 1400.00, '40DC'),
-    ('USD', 60.00, 380.00, 1500.00, '40HC'),
-    ('BDT', 4200.00, 26000.00, 90000.00, '20DC'),
-    ('BDT', 5500.00, 34000.00, 120000.00, '40DC')
+    insert into public.detention_rates (currency_id, rate_per_day, rate_per_week, rate_per_month, container_type_id)
+    select
+    c.id, 45.00, 280.00, 1000.00, ct.id
+    from public.currencies c, public.container_types ct
+    where c.currency_code = 'USD' and ct.container_code = '20DC'
+    union all
+    select c.id, 60.00, 380.00, 1400.00, ct.id
+    from public.currencies c, public.container_types ct
+    where c.currency_code = 'USD' and ct.container_code = '40DC'
+    union all
+    select c.id, 60.00, 380.00, 1500.00, ct.id
+    from public.currencies c, public.container_types ct
+    where c.currency_code = 'USD' and ct.container_code = '40HC'
+    union all
+    select c.id, 4200.00, 26000.00, 90000.00, ct.id
+    from public.currencies c, public.container_types ct
+    where c.currency_code = 'BDT' and ct.container_code = '20DC'
+    union all
+    select c.id, 5500.00, 34000.00, 120000.00, ct.id
+    from public.currencies c, public.container_types ct
+    where c.currency_code = 'BDT' and ct.container_code = '40DC'
     on conflict do nothing;
