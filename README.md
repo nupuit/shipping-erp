@@ -20,6 +20,38 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Supabase ERP Database Setup
+
+The complete ERP schema is defined in `supabase/create_bookings_table.sql`. Run it once to create all required tables in your Supabase project.
+
+### Recommended setup
+
+1. Create a Supabase project.
+2. Add `.env.local` with:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   ```
+3. Open `supabase/create_bookings_table.sql` in Supabase Studio SQL Editor and execute the script.
+4. Or, if you use the Supabase CLI, run:
+   ```powershell
+   npm install -g supabase
+   supabase login
+   supabase link --project-ref YOUR_PROJECT_REF
+   .\supabase\setup.ps1
+   ```
+5. Confirm the tables exist: `common_parties`, `vessels`, `commodities`, `bookings`, `booking_items`, `bills_of_lading`, `container_activities`, `detention_rates`.
+6. Start the app:
+   ```bash
+   npm run dev
+   ```
+
+### If you see a table cache error
+
+- Make sure the SQL script has been executed in the same Supabase project as your `NEXT_PUBLIC_SUPABASE_URL`.
+- Confirm `public.vessels` exists in the SQL editor or in the database schema.
+- If needed, rerun the SQL script once after linking the project.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
