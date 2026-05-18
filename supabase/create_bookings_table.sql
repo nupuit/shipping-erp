@@ -114,7 +114,7 @@
     party_name text not null,
     party_type_id bigint references public.party_types(id),
     contact_person text,
-    email text,
+    email text unique,
     phone text,
     address text,
     city text,
@@ -129,8 +129,7 @@
     payment_terms text,
     remarks text,
     created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now(),
-    unique(email)
+    updated_at timestamptz not null default now()
     );
 
     -- Vessels Master
@@ -564,38 +563,22 @@
 
     -- Seed Data: Common Parties
     insert into public.common_parties (party_name, party_type_id, contact_person, email, phone, address, city, country)
-    select
-    'KD Shipping Agencies', pt.id, 'MD. Kamal', 'kamal@kdshipping.com', '+880-123-456789', 'Port Road', 'Chittagong', 'Bangladesh'
-    from public.party_types pt where pt.party_code = 'AGENT'
-    union all
-    select 'WFF Shipping LLC', pt.id, 'John Smith', 'info@wffshipping.com', '+1-555-123-4567', 'Maritime Plaza', 'New York', 'USA'
-    from public.party_types pt where pt.party_code = 'CARRIER'
-    union all
-    select 'Ocean Star Logistics', pt.id, 'Ahmed Hassan', 'contact@oceanstar.com', '+880-112-233-445', 'Ghazi Industrial', 'Chittagong', 'Bangladesh'
-    from public.party_types pt where pt.party_code = 'SHIPPER'
-    union all
-    select 'Global Consignee Ltd', pt.id, 'Sarah Lee', 'sarah@globalconsignee.com', '+44-20-1234-5678', 'London Port', 'London', 'UK'
-    from public.party_types pt where pt.party_code = 'CONSIGNEE'
-    union all
-    select 'Port of Chittagong', pt.id, 'Admin', 'admin@portchittagong.gov.bd', '+880-31-714501', 'Chittagong Port', 'Chittagong', 'Bangladesh'
-    from public.party_types pt where pt.party_code = 'PORT'
-    union all
-    select 'Maersk Line', pt.id, 'Operations', 'ops@maersk.com', '+45-3313-3313', 'Copenhagen', 'Copenhagen', 'Denmark'
-    from public.party_types pt where pt.party_code = 'CARRIER'
-    on conflict do nothing;
+    values
+    ('KD Shipping Agencies', (select id from public.party_types where party_code = 'AGENT' limit 1), 'MD. Kamal', 'kamal@kdshipping.com', '+880-123-456789', 'Port Road', 'Chittagong', 'Bangladesh'),
+    ('WFF Shipping LLC', (select id from public.party_types where party_code = 'CARRIER' limit 1), 'John Smith', 'info@wffshipping.com', '+1-555-123-4567', 'Maritime Plaza', 'New York', 'USA'),
+    ('Ocean Star Logistics', (select id from public.party_types where party_code = 'SHIPPER' limit 1), 'Ahmed Hassan', 'contact@oceanstar.com', '+880-112-233-445', 'Ghazi Industrial', 'Chittagong', 'Bangladesh'),
+    ('Global Consignee Ltd', (select id from public.party_types where party_code = 'CONSIGNEE' limit 1), 'Sarah Lee', 'sarah@globalconsignee.com', '+44-20-1234-5678', 'London Port', 'London', 'UK'),
+    ('Port Authority Chittagong', (select id from public.party_types where party_code = 'PORT' limit 1), 'Admin', 'admin@portchittagong.gov.bd', '+880-31-714501', 'Chittagong Port', 'Chittagong', 'Bangladesh'),
+    ('Maersk Line', (select id from public.party_types where party_code = 'CARRIER' limit 1), 'Operations', 'ops@maersk.com', '+45-3313-3313', 'Copenhagen', 'Copenhagen', 'Denmark')
+    on conflict (email) do nothing;
 
     -- Seed Data: Vessels
     insert into public.vessels (vessel_name, imo_no, voyage, vessel_type_id, capacity_teu, flag, call_sign)
-    select
-    'MSC CHITTAGONG', 'IMO1234567', 'VY-2026-001', vt.id, 8000, 'Panama', 'MSCC'
-    from public.vessel_types vt where vt.vessel_code = 'CONTAINER'
-    union all
-    select 'HORIZON ARROW', 'IMO2345678', 'VY-2026-002', vt.id, 5000, 'Singapore', 'HOAR'
-    from public.vessel_types vt where vt.vessel_code = 'RO_RO'
-    union all
-    select 'PACIFIC BREEZE', 'IMO3456789', 'VY-2026-003', vt.id, 20000, 'Marshall Islands', 'PBZE'
-    from public.vessel_types vt where vt.vessel_code = 'BREAKBULK'
-    on conflict do nothing;
+    values
+    ('MSC CHITTAGONG', 'IMO1234567', 'VY-2026-001', (select id from public.vessel_types where vessel_code = 'CONTAINER' limit 1), 8000, 'Panama', 'MSCC'),
+    ('HORIZON ARROW', 'IMO2345678', 'VY-2026-002', (select id from public.vessel_types where vessel_code = 'RO_RO' limit 1), 5000, 'Singapore', 'HOAR'),
+    ('PACIFIC BREEZE', 'IMO3456789', 'VY-2026-003', (select id from public.vessel_types where vessel_code = 'BREAKBULK' limit 1), 20000, 'Marshall Islands', 'PBZE')
+    on conflict (vessel_name) do nothing;
 
     -- Seed Data: Commodities
     insert into public.commodities (commodity_code, hs_code, description, commodity_group)
@@ -624,24 +607,10 @@
 
     -- Seed Data: Detention Rates
     insert into public.detention_rates (currency_id, rate_per_day, rate_per_week, rate_per_month, container_type_id)
-    select
-    c.id, 45.00, 280.00, 1000.00, ct.id
-    from public.currencies c, public.container_types ct
-    where c.currency_code = 'USD' and ct.container_code = '20DC'
-    union all
-    select c.id, 60.00, 380.00, 1400.00, ct.id
-    from public.currencies c, public.container_types ct
-    where c.currency_code = 'USD' and ct.container_code = '40DC'
-    union all
-    select c.id, 60.00, 380.00, 1500.00, ct.id
-    from public.currencies c, public.container_types ct
-    where c.currency_code = 'USD' and ct.container_code = '40HC'
-    union all
-    select c.id, 4200.00, 26000.00, 90000.00, ct.id
-    from public.currencies c, public.container_types ct
-    where c.currency_code = 'BDT' and ct.container_code = '20DC'
-    union all
-    select c.id, 5500.00, 34000.00, 120000.00, ct.id
-    from public.currencies c, public.container_types ct
-    where c.currency_code = 'BDT' and ct.container_code = '40DC'
+    values
+    ((select id from public.currencies where currency_code = 'USD' limit 1), 45.00, 280.00, 1000.00, (select id from public.container_types where container_code = '20DC' limit 1)),
+    ((select id from public.currencies where currency_code = 'USD' limit 1), 60.00, 380.00, 1400.00, (select id from public.container_types where container_code = '40DC' limit 1)),
+    ((select id from public.currencies where currency_code = 'USD' limit 1), 60.00, 380.00, 1500.00, (select id from public.container_types where container_code = '40HC' limit 1)),
+    ((select id from public.currencies where currency_code = 'BDT' limit 1), 4200.00, 26000.00, 90000.00, (select id from public.container_types where container_code = '20DC' limit 1)),
+    ((select id from public.currencies where currency_code = 'BDT' limit 1), 5500.00, 34000.00, 120000.00, (select id from public.container_types where container_code = '40DC' limit 1))
     on conflict do nothing;
